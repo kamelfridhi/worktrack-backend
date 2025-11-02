@@ -94,18 +94,63 @@ if ON_CLOUD and os.environ.get('DATABASE_URL'):
         }
     except (ValueError, Exception):
         # If parsing fails (e.g., with Supabase Session Pooler format), parse manually
-        from urllib.parse import urlparse
-        parsed = urlparse(database_url)
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql',
-                'NAME': parsed.path[1:] if parsed.path.startswith('/') else parsed.path,
-                'USER': parsed.username,
-                'PASSWORD': parsed.password,
-                'HOST': parsed.hostname,
-                'PORT': parsed.port or 5432,
+        # Python 3.13's urlparse has issues with hostnames, so we parse manually
+        import re
+
+        # Extract components using regex (more reliable for Python 3.13)
+        # Format: postgresql://user:password@host:port/database
+        pattern = r'postgresql://(?:([^:]+):([^@]+)@)?([^:/]+)(?::(\d+))?/(.+)'
+        match = re.match(pattern, database_url)
+
+        if match:
+            username, password, host, port, database = match.groups()
+            DATABASES = {
+                'default': {
+                    'ENGINE': 'django.db.backends.postgresql',
+                    'NAME': database,
+                    'USER': username or 'postgres',
+                    'PASSWORD': password or '',
+                    'HOST': host,
+                    'PORT': int(port) if port else 5432,
+                }
             }
-        }
+        else:
+            # Fallback: try to construct manually
+            # Remove postgresql:// prefix
+            url_without_scheme = database_url.replace('postgresql://', '')
+            # Split by @ to separate credentials from host
+            if '@' in url_without_scheme:
+                creds, host_part = url_without_scheme.rsplit('@', 1)
+                if ':' in creds:
+                    username, password = creds.split(':', 1)
+                else:
+                    username, password = creds, ''
+            else:
+                username, password = '', ''
+                host_part = url_without_scheme
+
+            # Split host:port/database
+            if '/' in host_part:
+                host_port, database = host_part.split('/', 1)
+            else:
+                host_port, database = host_part, 'postgres'
+
+            if ':' in host_port:
+                host, port = host_port.rsplit(':', 1)
+                port = int(port)
+            else:
+                host, port = host_port, 5432
+
+            DATABASES = {
+                'default': {
+                    'ENGINE': 'django.db.backends.postgresql',
+                    'NAME': database,
+                    'USER': username or 'postgres',
+                    'PASSWORD': password or '',
+                    'HOST': host,
+                    'PORT': port,
+                }
+            }
 else:
     # Use SQLite locally
     DATABASES = {

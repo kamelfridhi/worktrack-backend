@@ -241,6 +241,9 @@ if ON_CLOUD:
     # Security settings for HTTPS in production
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    # For cross-origin requests in production (HTTPS), must use SameSite=None
+    SESSION_COOKIE_SAMESITE = 'None'
+    CSRF_COOKIE_SAMESITE = 'None'
 else:
     # Development: Localhost origins
     CORS_ALLOWED_ORIGINS = [
@@ -257,14 +260,14 @@ else:
     ]
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    CSRF_COOKIE_SAMESITE = 'Lax'
 
 CORS_ALLOW_CREDENTIALS = True
 
 # Session configuration for cross-origin requests
-SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 86400  # 24 hours
 SESSION_SAVE_EVERY_REQUEST = True  # Keep session alive on every request
 SESSION_COOKIE_NAME = 'sessionid'
-CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = False  # Must be False for JavaScript to read it

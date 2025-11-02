@@ -1,3 +1,4 @@
+import os
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -64,15 +65,17 @@ def api_login(request):
             'sessionid': request.session.session_key
         })
         # Explicitly set session cookie headers
+        # In production (HTTPS), use SameSite=None and Secure=True for cross-origin
+        is_https = request.is_secure() or os.environ.get('ON_CLOUD', False)
         response.set_cookie(
             'sessionid',
             request.session.session_key,
             max_age=86400,  # 24 hours
             path='/',
             domain=None,  # Let browser handle domain (None means current domain)
-            secure=False,  # Must be False for localhost
+            secure=is_https,  # True in production (HTTPS), False for localhost
             httponly=True,
-            samesite='Lax'  # Works for localhost cross-port
+            samesite='None' if is_https else 'Lax'  # None for cross-origin HTTPS, Lax for localhost
         )
         return response
     else:

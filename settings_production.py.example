@@ -1,0 +1,76 @@
+"""
+Production settings example for WorkTrack.
+Copy this to your production environment and update values.
+"""
+
+from .settings import *
+
+# SECURITY WARNING: keep the secret key used in production secret!
+# Generate a new secret key: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+SECRET_KEY = os.environ.get('SECRET_KEY', 'CHANGE-THIS-IN-PRODUCTION')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = False
+
+# Add your production domain(s) here
+ALLOWED_HOSTS = [
+    'your-backend-domain.com',
+    'www.your-backend-domain.com',
+    'api.your-backend-domain.com',
+]
+
+# Database - Use PostgreSQL for production
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('DB_NAME', 'worktrack'),
+        'USER': os.environ.get('DB_USER', 'worktrack_user'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
+    }
+}
+
+# Static files
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_URL = '/static/'
+
+# Media files (if you add file uploads later)
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = '/media/'
+
+# CORS - Update with your frontend production domain
+CORS_ALLOWED_ORIGINS = [
+    "https://your-frontend-domain.com",
+    "https://www.your-frontend-domain.com",
+]
+
+# Security settings for HTTPS
+SESSION_COOKIE_SECURE = True  # Only send over HTTPS
+CSRF_COOKIE_SECURE = True  # Only send over HTTPS
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False  # Must be False for JS to read
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_TRUSTED_ORIGINS = [
+    "https://your-frontend-domain.com",
+    "https://www.your-frontend-domain.com",
+    "https://your-backend-domain.com",
+]
+
+# Logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
+        },
+    },
+    'root': {
+        'handlers': ['file'],
+        'level': 'WARNING',
+    },
+}
+

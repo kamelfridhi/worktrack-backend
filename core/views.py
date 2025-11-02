@@ -147,19 +147,32 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Filter projects by month and/or year if provided.
+        Filter projects by month, year, or specific date if provided.
         Example: /api/projects/?month=11&year=2025
+        Example: /api/projects/?date=2025-11-02
         """
         queryset = Project.objects.all()
         month = self.request.query_params.get('month', None)
         year = self.request.query_params.get('year', None)
+        date = self.request.query_params.get('date', None)
         search = self.request.query_params.get('search', None)
 
-        if month:
-            queryset = queryset.filter(date__month=month)
+        # If specific date is provided, filter by that exact date
+        if date:
+            try:
+                from datetime import datetime
+                date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+                queryset = queryset.filter(date=date_obj)
+            except (ValueError, TypeError):
+                # If date format is invalid, ignore the date filter
+                pass
+        else:
+            # Otherwise, use month/year filtering
+            if month:
+                queryset = queryset.filter(date__month=month)
 
-        if year:
-            queryset = queryset.filter(date__year=year)
+            if year:
+                queryset = queryset.filter(date__year=year)
 
         if search:
             queryset = queryset.filter(

@@ -86,9 +86,26 @@ WSGI_APPLICATION = "WorkTrack.wsgi.application"
 # Database configuration
 if ON_CLOUD and os.environ.get('DATABASE_URL'):
     # Use PostgreSQL on cloud platforms (Railway, Render, etc.)
-    DATABASES = {
-        'default': dj_database_url.parse(os.environ.get('DATABASE_URL'))
-    }
+    database_url = os.environ.get('DATABASE_URL')
+    try:
+        # Try parsing with dj-database-url first
+        DATABASES = {
+            'default': dj_database_url.parse(database_url)
+        }
+    except (ValueError, Exception):
+        # If parsing fails (e.g., with Supabase Session Pooler format), parse manually
+        from urllib.parse import urlparse
+        parsed = urlparse(database_url)
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': parsed.path[1:] if parsed.path.startswith('/') else parsed.path,
+                'USER': parsed.username,
+                'PASSWORD': parsed.password,
+                'HOST': parsed.hostname,
+                'PORT': parsed.port or 5432,
+            }
+        }
 else:
     # Use SQLite locally
     DATABASES = {

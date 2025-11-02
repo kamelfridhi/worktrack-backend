@@ -46,3 +46,7 @@ db.sqlite3-journal
 .DS_Store
 Thumbs.db
 
+# Node modules
+node_modules/
+package-lock.json
+

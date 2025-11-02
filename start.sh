@@ -2,14 +2,16 @@
 # Startup script that runs migrations and starts gunicorn
 
 # Navigate to the repository root (where manage.py is)
+# Render Root Directory is set to WorkTrack, so we start in /opt/render/project/src/WorkTrack/
+# We need to go up one level to repo root
 cd /opt/render/project/src/..
 
-# Run migrations automatically
-python manage.py migrate --noinput || true
+# Run migrations automatically (manage.py is in WorkTrack/ directory)
+python WorkTrack/manage.py migrate --noinput || true
 
 # Create admin user if it doesn't exist
 # Password comes from ADMIN_PASSWORD env var, or use the default specified below
-python manage.py create_admin --username zeen --email zeenalzein4@gmail.com --password "${ADMIN_PASSWORD:-@zenZEEN20&25}" || true
+python WorkTrack/manage.py create_admin --username zeen --email zeenalzein4@gmail.com --password "${ADMIN_PASSWORD:-@zenZEEN20&25}" || true
 
 # Set PYTHONPATH to include current directory (repo root) so Python can find WorkTrack module
 export PYTHONPATH=/opt/render/project/src/../:$PYTHONPATH

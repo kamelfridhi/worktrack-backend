@@ -66,7 +66,11 @@ def api_login(request):
         })
         # Explicitly set session cookie headers
         # In production (HTTPS), use SameSite=None and Secure=True for cross-origin
-        is_https = request.is_secure() or os.environ.get('ON_CLOUD', False)
+        # Check if we're on cloud (Render, Railway, etc.) - if so, always use HTTPS settings
+        from django.conf import settings
+        ON_CLOUD = os.environ.get('RENDER') or os.environ.get('RAILWAY') or os.environ.get('DYNO')
+        is_https = ON_CLOUD or request.is_secure()
+
         response.set_cookie(
             'sessionid',
             request.session.session_key,

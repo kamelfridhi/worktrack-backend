@@ -31,6 +31,10 @@ DEBUG = not ON_CLOUD  # False on cloud platforms, True locally
 
 ALLOWED_HOSTS = ['*'] if ON_CLOUD else []
 
+# Trust proxy headers for HTTPS detection (needed for Render, Railway, etc.)
+if ON_CLOUD:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 
 # Application definition
 

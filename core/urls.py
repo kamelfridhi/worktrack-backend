@@ -10,9 +10,6 @@ router.register(r'employeeprojects', views.EmployeeProjectViewSet, basename='emp
 router.register(r'statistics', views.StatisticsViewSet, basename='statistics')
 
 urlpatterns = [
-    # Authentication endpoints
-    path('login/', views.api_login, name='api-login'),
-    path('logout/', views.api_logout, name='api-logout'),
     # Include all router URLs
     path('', include(router.urls)),
     # PDF export endpoint: /api/export-employee/<id>/<month>/?year=2025

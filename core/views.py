@@ -2,11 +2,10 @@ import os
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser, AllowAny
+from rest_framework.permissions import AllowAny
 from django.db.models import Q, Sum, Count
 from django.http import HttpResponse
 from django.utils import timezone
-from django.contrib.auth import authenticate, login as django_login
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
 from reportlab.lib import colors
@@ -27,79 +26,6 @@ from .serializers import (
 )
 
 
-@api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
-def api_login(request):
-    """
-    Custom login endpoint for frontend authentication.
-    GET: Returns CSRF token for initial setup
-    POST: Authenticates user and logs them in
-    """
-    if request.method == 'GET':
-        # Return CSRF token for initial setup
-        from django.middleware.csrf import get_token
-        csrf_token = get_token(request)
-        return Response({'csrf_token': csrf_token})
-
-    username = request.data.get('username')
-    password = request.data.get('password')
-
-    if not username or not password:
-        return Response(
-            {'error': 'Username and password are required'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    user = authenticate(request, username=username, password=password)
-
-    if user is not None and user.is_staff:
-        django_login(request, user)
-        # Ensure session is saved
-        request.session.save()
-        # Ensure CSRF token is set in cookie
-        from django.middleware.csrf import get_token
-        csrf_token = get_token(request)
-        response = Response({
-            'success': True,
-            'message': 'Login successful',
-            'sessionid': request.session.session_key
-        })
-        # Explicitly set session cookie headers
-        # In production (HTTPS), use SameSite=None and Secure=True for cross-origin
-        # Check if we're on cloud (Render, Railway, etc.) - if so, always use HTTPS settings
-        from django.conf import settings
-        ON_CLOUD = os.environ.get('RENDER') or os.environ.get('RAILWAY') or os.environ.get('DYNO')
-        is_https = ON_CLOUD or request.is_secure()
-
-        response.set_cookie(
-            'sessionid',
-            request.session.session_key,
-            max_age=86400,  # 24 hours
-            path='/',
-            domain=None,  # Let browser handle domain (None means current domain)
-            secure=is_https,  # True in production (HTTPS), False for localhost
-            httponly=True,
-            samesite='None' if is_https else 'Lax'  # None for cross-origin HTTPS, Lax for localhost
-        )
-        return response
-    else:
-        return Response(
-            {'error': 'Invalid credentials'},
-            status=status.HTTP_401_UNAUTHORIZED
-        )
-
-
-@api_view(['POST'])
-@permission_classes([IsAdminUser])
-def api_logout(request):
-    """
-    Custom logout endpoint.
-    """
-    from django.contrib.auth import logout as django_logout
-    django_logout(request)
-    return Response({'success': True, 'message': 'Logout successful'})
-
-
 class EmployeeViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Employee CRUD operations.
@@ -107,7 +33,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     simplified list in list view.
     """
     queryset = Employee.objects.all()
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -142,7 +68,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     Returns full details with nested employees in detail view.
     """
     queryset = Project.objects.all()
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -195,7 +121,7 @@ class EmployeeProjectViewSet(viewsets.ModelViewSet):
     """
     queryset = EmployeeProject.objects.select_related('employee', 'project').all()
     serializer_class = EmployeeProjectCreateSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         """
@@ -243,9 +169,6 @@ def export_employee_pdf(request, employee_id, month):
     Query parameter: year (optional, defaults to current year)
     Note: The month parameter should be the month number (1-12).
     """
-    if not request.user.is_authenticated or not request.user.is_staff:
-        return HttpResponse('Unauthorized', status=401)
-
     try:
         employee = Employee.objects.get(id=employee_id)
     except Employee.DoesNotExist:
@@ -499,7 +422,7 @@ class StatisticsViewSet(viewsets.ViewSet):
     ViewSet for statistics endpoint.
     Returns total projects, total employees, and total hours for a month.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     @action(detail=False, methods=['get'])
     def statistics(self, request):

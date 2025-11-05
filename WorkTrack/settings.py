@@ -11,29 +11,21 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
-import os
-import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Check if we're on a cloud platform (Render, Railway, etc.)
-ON_CLOUD = os.environ.get('RENDER') or os.environ.get('RAILWAY') or os.environ.get('DYNO')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', "django-insecure-3q1fmi)f2b^unqov=8#bhcbfd_y_4k_o6lrlt3p3j5h#!28yzq")
+SECRET_KEY = "django-insecure-3q1fmi)f2b^unqov=8#bhcbfd_y_4k_o6lrlt3p3j5h#!28yzq"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = not ON_CLOUD  # False on cloud platforms, True locally
+DEBUG = True
 
-ALLOWED_HOSTS = ['*'] if ON_CLOUD else []
-
-# Trust proxy headers for HTTPS detection (needed for Render, Railway, etc.)
-if ON_CLOUD:
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -61,8 +53,6 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-# Add WhiteNoise middleware for production (will be inserted above if ON_CLOUD)
-
 ROOT_URLCONF = "WorkTrack.urls"
 
 TEMPLATES = [
@@ -87,82 +77,12 @@ WSGI_APPLICATION = "WorkTrack.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# Database configuration
-if ON_CLOUD and os.environ.get('DATABASE_URL'):
-    # Use PostgreSQL on cloud platforms (Railway, Render, etc.)
-    database_url = os.environ.get('DATABASE_URL')
-    try:
-        # Try parsing with dj-database-url first
-        DATABASES = {
-            'default': dj_database_url.parse(database_url)
-        }
-    except (ValueError, Exception):
-        # If parsing fails (e.g., with Supabase Session Pooler format), parse manually
-        # Python 3.13's urlparse has issues with hostnames, so we parse manually
-        import re
-
-        # Extract components using regex (more reliable for Python 3.13)
-        # Format: postgresql://user:password@host:port/database
-        pattern = r'postgresql://(?:([^:]+):([^@]+)@)?([^:/]+)(?::(\d+))?/(.+)'
-        match = re.match(pattern, database_url)
-
-        if match:
-            username, password, host, port, database = match.groups()
-            DATABASES = {
-                'default': {
-                    'ENGINE': 'django.db.backends.postgresql',
-                    'NAME': database,
-                    'USER': username or 'postgres',
-                    'PASSWORD': password or '',
-                    'HOST': host,
-                    'PORT': int(port) if port else 5432,
-                }
-            }
-        else:
-            # Fallback: try to construct manually
-            # Remove postgresql:// prefix
-            url_without_scheme = database_url.replace('postgresql://', '')
-            # Split by @ to separate credentials from host
-            if '@' in url_without_scheme:
-                creds, host_part = url_without_scheme.rsplit('@', 1)
-                if ':' in creds:
-                    username, password = creds.split(':', 1)
-                else:
-                    username, password = creds, ''
-            else:
-                username, password = '', ''
-                host_part = url_without_scheme
-
-            # Split host:port/database
-            if '/' in host_part:
-                host_port, database = host_part.split('/', 1)
-            else:
-                host_port, database = host_part, 'postgres'
-
-            if ':' in host_port:
-                host, port = host_port.rsplit(':', 1)
-                port = int(port)
-            else:
-                host, port = host_port, 5432
-
-            DATABASES = {
-                'default': {
-                    'ENGINE': 'django.db.backends.postgresql',
-                    'NAME': database,
-                    'USER': username or 'postgres',
-                    'PASSWORD': password or '',
-                    'HOST': host,
-                    'PORT': port,
-                }
-            }
-else:
-    # Use SQLite locally
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
+}
 
 
 # Password validation
@@ -204,12 +124,6 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
-# Production static files
-if ON_CLOUD:
-    STATIC_ROOT = BASE_DIR / "staticfiles"
-    # Use WhiteNoise for serving static files
-    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
@@ -228,50 +142,29 @@ REST_FRAMEWORK = {
 }
 
 # CORS configuration for React frontend
-if ON_CLOUD:
-    # Production: Use environment variable for frontend URL
-    frontend_url = os.environ.get('FRONTEND_URL', '')
-    CORS_ALLOWED_ORIGINS = [frontend_url] if frontend_url else []
-    backend_url = os.environ.get('BACKEND_URL', '')
-    if backend_url and frontend_url:
-        CSRF_TRUSTED_ORIGINS = [frontend_url, backend_url]
-    elif frontend_url:
-        CSRF_TRUSTED_ORIGINS = [frontend_url]
-    elif backend_url:
-        CSRF_TRUSTED_ORIGINS = [backend_url]
-    else:
-        CSRF_TRUSTED_ORIGINS = []
-
-    # Security settings for HTTPS in production
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    # For cross-origin requests in production (HTTPS), must use SameSite=None
-    SESSION_COOKIE_SAMESITE = 'None'
-    CSRF_COOKIE_SAMESITE = 'None'
-else:
-    # Development: Localhost origins
-    CORS_ALLOWED_ORIGINS = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",  # Vite default port
-        "http://127.0.0.1:5173",
-    ]
-    CSRF_TRUSTED_ORIGINS = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ]
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
-    SESSION_COOKIE_SAMESITE = 'Lax'
-    CSRF_COOKIE_SAMESITE = 'Lax'
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",  # Vite default port
+    "http://127.0.0.1:5173",
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
 # Session configuration for cross-origin requests
+# For localhost to localhost (different ports), Lax works fine
+SESSION_COOKIE_SAMESITE = 'Lax'  # Works for localhost to localhost cross-port
+SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 86400  # 24 hours
 SESSION_SAVE_EVERY_REQUEST = True  # Keep session alive on every request
 SESSION_COOKIE_NAME = 'sessionid'
+CSRF_COOKIE_SAMESITE = 'Lax'  # Works for localhost to localhost cross-port
+CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
 CSRF_COOKIE_HTTPONLY = False  # Must be False for JavaScript to read it
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]

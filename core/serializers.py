@@ -97,6 +97,7 @@ class EmployeeProjectCreateSerializer(serializers.ModelSerializer):
     """
     employee = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all())
     project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
+    hours_worked = serializers.FloatField(required=False, default=0.0, allow_null=False)
 
     class Meta:
         model = EmployeeProject
@@ -110,7 +111,7 @@ class EmployeeProjectCreateSerializer(serializers.ModelSerializer):
         """
         employee = validated_data['employee']
         project = validated_data['project']
-        hours_worked = validated_data['hours_worked']
+        hours_worked = validated_data.get('hours_worked', 0.0)
 
         employee_project, created = EmployeeProject.objects.update_or_create(
             employee=employee,

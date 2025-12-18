@@ -112,57 +112,77 @@ WSGI_APPLICATION = "WorkTrack.wsgi.application"
 
 if ON_CLOUD and os.environ.get('DATABASE_URL'):
     database_url = os.environ.get('DATABASE_URL')
+
+    # Handle Supabase connection strings properly
+    # Supabase uses special formats that need URL encoding for passwords
+    import urllib.parse
+
     try:
+        # Try parsing with dj_database_url first
         DATABASES = {
-            'default': dj_database_url.parse(database_url)
+            'default': dj_database_url.parse(database_url, conn_max_age=600)
         }
-    except (ValueError, Exception):
+    except (ValueError, Exception) as e:
+        # If parsing fails, manually parse the connection string
+        # This handles Supabase connection strings better
         import re
-        pattern = r'postgresql://(?:([^:]+):([^@]+)@)?([^:/]+)(?::(\d+))?/(.+)'
-        match = re.match(pattern, database_url)
-        if match:
-            username, password, host, port, database = match.groups()
-            DATABASES = {
-                'default': {
-                    'ENGINE': 'django.db.backends.postgresql',
-                    'NAME': database,
-                    'USER': username or 'postgres',
-                    'PASSWORD': password or '',
-                    'HOST': host,
-                    'PORT': int(port) if port else 5432,
-                }
-            }
+
+        # Remove the postgresql:// prefix
+        url_without_scheme = database_url.replace('postgresql://', '').replace('postgres://', '')
+
+        # Parse credentials and host
+        if '@' in url_without_scheme:
+            creds_part, host_part = url_without_scheme.rsplit('@', 1)
+            if ':' in creds_part:
+                # Handle URL-encoded passwords (common in Supabase)
+                username, password = creds_part.split(':', 1)
+                # Decode URL-encoded password
+                password = urllib.parse.unquote(password)
+            else:
+                username, password = creds_part, ''
         else:
-            # Fallback: manual parsing
-            url_without_scheme = database_url.replace('postgresql://', '')
-            if '@' in url_without_scheme:
-                creds, host_part = url_without_scheme.rsplit('@', 1)
-                if ':' in creds:
-                    username, password = creds.split(':', 1)
-                else:
-                    username, password = creds, ''
-            else:
-                username, password = '', ''
-                host_part = url_without_scheme
-            if '/' in host_part:
-                host_port, database = host_part.split('/', 1)
-            else:
-                host_port, database = host_part, 'postgres'
-            if ':' in host_port:
-                host, port = host_port.rsplit(':', 1)
+            username, password = 'postgres', ''
+            host_part = url_without_scheme
+
+        # Parse host, port, and database
+        if '/' in host_part:
+            host_port, database = host_part.split('/', 1)
+            # Remove query parameters if present
+            if '?' in database:
+                database = database.split('?')[0]
+        else:
+            host_port, database = host_part, 'postgres'
+
+        if ':' in host_port:
+            host, port = host_port.rsplit(':', 1)
+            try:
                 port = int(port)
-            else:
-                host, port = host_port, 5432
-            DATABASES = {
-                'default': {
-                    'ENGINE': 'django.db.backends.postgresql',
-                    'NAME': database,
-                    'USER': username or 'postgres',
-                    'PASSWORD': password or '',
-                    'HOST': host,
-                    'PORT': port,
+            except ValueError:
+                port = 5432
+        else:
+            host, port = host_port, 5432
+
+        # For Supabase pooler connections, ensure username is correct
+        # Supabase pooler format: postgres.[PROJECT-REF]:[PASSWORD]@...
+        if 'pooler.supabase.com' in host and not username.startswith('postgres.'):
+            # If using pooler but username doesn't have project ref, try to extract it
+            # This is a fallback - the connection string should already have the correct format
+            pass
+
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': database,
+                'USER': username or 'postgres',
+                'PASSWORD': password,
+                'HOST': host,
+                'PORT': port,
+                'CONN_MAX_AGE': 600,
+                'OPTIONS': {
+                    'connect_timeout': 10,
                 }
             }
+        }
 else:
     DATABASES = {
         "default": {
